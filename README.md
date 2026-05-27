@@ -26,4 +26,4 @@ O projeto está dividido nas seguintes pastas para facilitar a execução:
 
 * **`/1-estrutura`:** Contém o script SQL de criação de todas as tabelas, chaves primárias, chaves estrangeiras e restrições (`create_tables.sql`).
 * **`/2-dados`:** Contém a carga de dados de teste (massa de dados contendo hotéis, quartos, categorias, hóspedes e históricos de reservas e pagamentos).
-* **`/3-evidencias`:** Prints das consultas (`SELECT`) executadas no pgAdmin, comprovando o funcionamento prático do banco e relatórios gerados.
+* **`/3-arquivos e imagens do ML`:** Prints das consultas (`SELECT`) executadas no pgAdmin, comprovando o funcionamento prático do banco e relatórios gerados.
