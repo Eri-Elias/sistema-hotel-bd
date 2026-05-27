@@ -1,4 +1,4 @@
-# Sistema de Gestão Hoteleira - Banco de Dados Relacional
+# Sistema de Gestão de Hotéis - Banco de Dados Relacional
 
 ## Escopo do Projeto
 O sistema visa monitorar e gerenciar a disponibilidade de quartos, perfis de hóspedes, fluxo de reservas e a gestão financeira, garantindo que não haja sobreposição de datas e controlando as finanças adquiridas ao longo do processo.
