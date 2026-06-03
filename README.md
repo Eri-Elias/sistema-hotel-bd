@@ -20,7 +20,7 @@ Para atender aos requisitos de negócios complexos de um hotel real, o banco de 
 
 ---
 
-## 🚀 Consultas Analíticas e Inteligência de Negócios (BI)
+## Consultas Analíticas e Inteligência de Negócios (BI)
 O projeto conta com um conjunto de consultas SQL complexas focadas em extração de relatórios gerenciais e tomada de decisão, cobrindo:
 * **Tratamento Dinâmico de Herança:** Uso de `LEFT JOIN` combinado com a função `COALESCE` para unificar a busca de nomes de clientes independentemente de serem Pessoas Físicas ou Jurídicas.
 * **Filtros Avançados de Agrupamento:** Uso de `GROUP BY` e `HAVING` aplicados à logística operacional (como identificação de picos de ocupação por andar do hotel).
