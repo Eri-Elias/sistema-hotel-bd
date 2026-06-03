@@ -1,4 +1,4 @@
--- CREATE TABLE hotel ( 
+CREATE TABLE hotel ( 
     id_hotel SERIAL PRIMARY KEY,       
     nome_unidade VARCHAR(100) NOT NULL, 
     cnpj VARCHAR(18) UNIQUE NOT NULL   
@@ -32,6 +32,17 @@ CREATE TABLE quarto (
     FOREIGN KEY (id_categoria) REFERENCES categoria(id_categoria) ON DELETE RESTRICT 
 ); 
   
+-- Tabela HOSPEDE 
+CREATE TABLE hospede ( 
+    id_hospede SERIAL PRIMARY KEY, 
+    data_nascimento DATE NOT NULL,
+    end_logradouro VARCHAR(150) NOT NULL,
+    end_numero VARCHAR(10) NOT NULL,
+    end_cep VARCHAR(9) NOT NULL,
+    end_bairro VARCHAR(50) NOT NULL,
+    end_cidade VARCHAR(50) NOT NULL
+);
+
 -- Tabela RESERVA 
 CREATE TABLE reserva ( 
     id_reserva SERIAL PRIMARY KEY, 
@@ -40,13 +51,6 @@ CREATE TABLE reserva (
     data_checkout DATE NOT NULL, 
     valor_estimado DECIMAL(10, 2) NOT NULL, -- Valor total calculado no momento da reserva
     FOREIGN KEY (id_hospede) REFERENCES hospede(id_hospede) ON DELETE RESTRICT 
-); 
-
--- Tabela HOSPEDE 
-CREATE TABLE hospede ( 
-    id_hospede SERIAL PRIMARY KEY, 
-    nome VARCHAR(100) NOT NULL, 
-    cpf VARCHAR(14) UNIQUE NOT NULL 
 ); 
   
 -- Tabela N:M RESERVA_QUARTO 
