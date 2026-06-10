@@ -1,144 +1,59 @@
--- Seleciona apenas os quartos ativos
-SELECT 
-    h.nome_unidade AS hotel,
-    COUNT(q.id_quarto) AS quantidade_quartos
-FROM hotel h
-INNER JOIN quarto q ON h.id_hotel = q.id_hotel
-WHERE q.status = TRUE
-GROUP BY h.id_hotel, h.nome_unidade
-ORDER BY quantidade_quartos DESC;
+-- O hospede deseja criar uma reserva na hora do check-in
+BEGIN;
+-- Criar a reserva para o hospede com o ID 3
+INSERT INTO reserva (id_hospede, data_checkin, data_checkout, valor_estimado)
+VALUES (3, '2026-08-10', '2026-08-15', 750.00);
+-- Vincular a reserva criada ao número 5
+INSERT INTO reserva_quarto (id_reserva, id_quarto)
+VALUES (currval('reserva_id_reserva_seq'), 5);
+-- Registrar o pagamento dessa reserva na tabela pai de pagamentos
+INSERT INTO pagamento (id_reserva, valor_total)
+VALUES (currval('reserva_id_reserva_seq'), 750.00);
+-- Especifica que esse pagamento foi feito (via PIX)
+INSERT INTO pix (id_pagamento, chave_pix, cod_transacao)
+VALUES (currval('pagamento_id_pagamento_seq'), 'hotel@pix.com', 'PIX_RESERVA_XYZ123');
+COMMIT;
 
 
--- Quais clientes estão no sistema que não possuem cadastro.
-SELECT 
-    h.id_hospede,
-    COALESCE(pf.nome_completo, pj.nome_fantasia, pj.razao_social) AS nome_hospede, 
-	-- COALESCE: pega o primeiro nome que não for nulo
-	-- Unifica todos os nomes em uma coluna só.
-	-- Nome completo preenchido -> s/n? pega o próx em caso de n (nome_fantasia). Se não tiver ainda, pega a razao_social
-    COUNT(r.id_reserva) AS total_reservas
-FROM hospede h
-LEFT JOIN pessoa_fisica pf ON h.id_hospede = pf.id_hospede
-LEFT JOIN pessoa_juridica pj ON h.id_hospede = pj.id_hospede
-LEFT JOIN reserva r ON h.id_hospede = r.id_hospede
--- Aplicar LEFT JOIN para que não filtre PF e PJ ao mesmo tempo.
--- Garantir que traga pessoas que nunca reservaram também.
-GROUP BY h.id_hospede, pf.nome_completo, pj.nome_fantasia, pj.razao_social
-HAVING COUNT(r.id_reserva) < 1
--- Pega os clientes com menos de uma reserva
-ORDER BY nome_hospede ASC;
+-- Pagamento do cliente depois o uso da estadia
+BEGIN;
+-- Registrar o pagamento para uma reserva que já estava ativa no hotel
+INSERT INTO pagamento (id_reserva, valor_total)
+VALUES (7, 500.00);
+-- Inserir a especificação do cartão de crédito vinculando ao pagamento acima
+INSERT INTO cartao_credito (id_pagamento, qtd_parcelas)
+VALUES (currval('pagamento_id_pagamento_seq'), 3); 
+-- currval() retorna o último valor da sequência que foi gerada pela funcao nexval()
+-- Atualiza o status do quarto para disponível depois o pagamento
+UPDATE quarto 
+SET status = TRUE 
+WHERE id_quarto = (SELECT id_quarto FROM reserva_quarto WHERE id_reserva = 7);
+COMMIT;
 
 
--- Análise de Perfil de Clientes - Quem gera mais lucro
-SELECT 
-    pf.nome_completo AS hospede_pf,
-    COUNT(r.id_reserva) AS total_reservas,
-    SUM(p.valor_total) AS total_pago
-FROM hospede h
--- Inner Join em sequência ligando as tabelas: HOSPEDE <-> PESSOA_FISICA <-> RESERVA <-> PAGAMENTO
-INNER JOIN pessoa_fisica pf ON h.id_hospede = pf.id_hospede
-INNER JOIN reserva r ON h.id_hospede = r.id_hospede
-INNER JOIN pagamento p ON r.id_reserva = p.id_reserva
--- Agrupa os hospedes que possuem um pagamento > que a média geral
-GROUP BY h.id_hospede, pf.nome_completo
-HAVING SUM(p.valor_total) > (
-    -- Média do valor total de todos os pagamentos do hotel - SQ 
-    SELECT AVG(valor_total) FROM pagamento
-)
-ORDER BY total_pago DESC;
+-- Tentar selecionar uma reserva e desistir
+BEGIN;
+-- O atendente seleciona a reserva 6 por engano e tenta deletar o vínculo do quarto
+DELETE FROM reserva_quarto WHERE id_reserva = 6;
+-- O atendente percebe o erro e desiste da exclusão antes de salvar
+ROLLBACK;
 
 
--- Faturamento por quarto
-SELECT 
-    c.nome_categoria AS categoria_quarto,
-    COUNT(DISTINCT r.id_reserva) AS total_reservas,
-	-- 
-    SUM(p.valor_total) AS faturamento_total
-FROM categoria c
-INNER JOIN quarto q ON c.id_categoria = q.id_categoria
-INNER JOIN reserva_quarto rq ON q.id_quarto = rq.id_quarto
-INNER JOIN reserva r ON rq.id_reserva = r.id_reserva
-INNER JOIN pagamento p ON r.id_reserva = p.id_reserva
-GROUP BY c.id_categoria, c.nome_categoria
-ORDER BY faturamento_total DESC;
+-- Desejo de Crescimento
+BEGIN;
+-- Atualiza o preço da diária da categoria ID 2 (Suite, etc) para um novo valor
+-- O dono do hotel deseja aprimorar a diária do quarto, melhorar o que está lá.
+UPDATE categoria 
+SET preco_diaria = 250.00 
+WHERE id_categoria = 2;
+COMMIT;
 
 
--- Identificar maior ocupação por andar
-SELECT 
-    h.nome_unidade AS hotel,
-    q.andar,
-    COUNT(rq.id_quarto) AS quartos_reservados_no_andar
-FROM hotel h
--- Inner join em: HOTEL <-> QUARTO via id_hotel
--- Inner join em: QUARTO <-> RESERVA_QUARTO via id_quarto
-INNER JOIN quarto q ON h.id_hotel = q.id_hotel
-INNER JOIN reserva_quarto rq ON q.id_quarto = rq.id_quarto
-GROUP BY h.id_hotel, h.nome_unidade, q.andar
-HAVING COUNT(rq.id_quarto) > 5
-ORDER BY h.nome_unidade ASC, q.andar ASC;
-
-
--- Ranking dos meios de pagamento mais utilizados
-SELECT 
-    CASE 
-        WHEN px.id_pagamento IS NOT NULL THEN 'PIX'
-        WHEN cc.id_pagamento IS NOT NULL THEN 'Cartão de Crédito'
-        WHEN d.id_pagamento IS NOT NULL THEN 'Dinheiro em Espécie'
-        ELSE 'Não Especificado'
-    END AS meio_pagamento,
-	-- CASE-WHEN funciona como um IF-ELSE padrão para filtrar os dados
-    COUNT(p.id_pagamento) AS quantidade_transacoes,
-	-- Conta quantos id_pagamentos tem
-SUM(p.valor_total) AS total_arrecadado
-FROM pagamento p
--- Utilizar LEFT JOIN para que ele não tente buscar colunas que estão em todos ao mesmo tempo
-LEFT JOIN pix px ON p.id_pagamento = px.id_pagamento
-LEFT JOIN cartao_credito cc ON p.id_pagamento = cc.id_pagamento
-LEFT JOIN dinheiro d ON p.id_pagamento = d.id_pagamento
--- meio_pagamento é o nome da consulta CASE-WHEN
-GROUP BY meio_pagamento
-ORDER BY quantidade_transacoes DESC;
-
-
--- Mostrar Clientes Jurídicos mais valorizados
--- Pessoa Juridica > todas as pessoas fisicas
-SELECT 
-    pj.nome_fantasia AS empresa,
-    pj.razao_social,
-    r.id_reserva,
-    r.data_checkin,
-    r.valor_estimado AS valor_da_reserva
-FROM pessoa_juridica pj
-INNER JOIN reserva r ON pj.id_hospede = r.id_hospede
--- Seleciona o valor de todas as reservas de Pessoas Fisicas - SQ
-WHERE r.valor_estimado > ALL (
-    SELECT res.valor_estimado 
-    FROM reserva res
-    INNER JOIN pessoa_fisica pf ON res.id_hospede = pf.id_hospede
-)
-ORDER BY r.valor_estimado DESC;
-
-
--- Calcular quanto tempo o hospede ficou no hotel
--- Diaria * Qtd. de tempo = valor total
-SELECT 
-    r.id_reserva,
-    COALESCE(pf.nome_completo, pj.nome_fantasia) AS hospede,
-    (r.data_checkout - r.data_checkin) AS quantidade_diarias,
-	-- (Checkout - Checkin) = quantidade de dias alugados
-	c.preco_diaria,
-    ((r.data_checkout - r.data_checkin) * c.preco_diaria) AS valor_calculado_real,
-	-- quantidade de dias * preço da diária = valor calculado real
-    r.valor_estimado AS valor_guardado_na_reserva
-FROM reserva r
--- LEFT JOIN: PESSOA FISICA <-> RESERVA via id_hospede
-LEFT JOIN pessoa_fisica pf ON r.id_hospede = pf.id_hospede
-LEFT JOIN pessoa_juridica pj ON r.id_hospede = pj.id_hospede
--- Agrupar RESERVA_QUARTO <-> RESERVA id_quarto
--- QUARTO <-> RESERVA_QUARTO via id_quarto
--- CATEGORIA <-> QUARTO via id_categoria
-INNER JOIN reserva_quarto rq ON r.id_reserva = rq.id_reserva
-INNER JOIN quarto q ON rq.id_quarto = q.id_quarto
-INNER JOIN categoria c ON q.id_categoria = c.id_categoria
--- checkout - checkin == quantidade_diarias
-ORDER BY quantidade_diarias DESC;
+-- Desistencia da compra
+BEGIN;
+-- O atendente começa a inserir uma nova reserva para o hóspede 2
+INSERT INTO reserva (id_hospede, data_checkin, data_checkout, valor_estimado);
+VALUES (2, '2026-12-20', '2026-12-25', 900.00);
+-- O cliente pode desistir da reserva antes do pagamento ser feito
+-- Desfazer a inserçao para que não crie dados fantasmas no sistema do banco de dados
+ROLLBACK;

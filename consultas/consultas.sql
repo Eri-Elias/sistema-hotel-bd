@@ -12,26 +12,34 @@ ORDER BY quantidade_quartos DESC;
 -- Quais clientes estão no sistema que não possuem cadastro.
 SELECT 
     h.id_hospede,
-    COALESCE(pf.nome_completo, pj.nome_fantasia, pj.razao_social) AS nome_hospede, -- COALESCE: pega o primeiro nome que não for nulo
+    COALESCE(pf.nome_completo, pj.nome_fantasia, pj.razao_social) AS nome_hospede, 
+	-- COALESCE: pega o primeiro nome que não for nulo
+	-- Unifica todos os nomes em uma coluna só.
+	-- Nome completo preenchido -> s/n? pega o próx em caso de n (nome_fantasia). Se não tiver ainda, pega a razao_social
     COUNT(r.id_reserva) AS total_reservas
 FROM hospede h
 LEFT JOIN pessoa_fisica pf ON h.id_hospede = pf.id_hospede
 LEFT JOIN pessoa_juridica pj ON h.id_hospede = pj.id_hospede
 LEFT JOIN reserva r ON h.id_hospede = r.id_hospede
+-- Aplicar LEFT JOIN para que não filtre PF e PJ ao mesmo tempo.
+-- Garantir que traga pessoas que nunca reservaram também.
 GROUP BY h.id_hospede, pf.nome_completo, pj.nome_fantasia, pj.razao_social
 HAVING COUNT(r.id_reserva) < 1
+-- Pega os clientes com menos de uma reserva
 ORDER BY nome_hospede ASC;
 
 
--- Análise de Perfil de Clientes / Separação de Mercado 
+-- Análise de Perfil de Clientes - Quem gera mais lucro
 SELECT 
     pf.nome_completo AS hospede_pf,
     COUNT(r.id_reserva) AS total_reservas,
     SUM(p.valor_total) AS total_pago
 FROM hospede h
+-- Inner Join em sequência ligando as tabelas: HOSPEDE <-> PESSOA_FISICA <-> RESERVA <-> PAGAMENTO
 INNER JOIN pessoa_fisica pf ON h.id_hospede = pf.id_hospede
 INNER JOIN reserva r ON h.id_hospede = r.id_hospede
 INNER JOIN pagamento p ON r.id_reserva = p.id_reserva
+-- Agrupa os hospedes que possuem um pagamento > que a média geral
 GROUP BY h.id_hospede, pf.nome_completo
 HAVING SUM(p.valor_total) > (
     -- Média do valor total de todos os pagamentos do hotel - SQ 
@@ -44,6 +52,7 @@ ORDER BY total_pago DESC;
 SELECT 
     c.nome_categoria AS categoria_quarto,
     COUNT(DISTINCT r.id_reserva) AS total_reservas,
+	-- 
     SUM(p.valor_total) AS faturamento_total
 FROM categoria c
 INNER JOIN quarto q ON c.id_categoria = q.id_categoria
@@ -60,6 +69,8 @@ SELECT
     q.andar,
     COUNT(rq.id_quarto) AS quartos_reservados_no_andar
 FROM hotel h
+-- Inner join em: HOTEL <-> QUARTO via id_hotel
+-- Inner join em: QUARTO <-> RESERVA_QUARTO via id_quarto
 INNER JOIN quarto q ON h.id_hotel = q.id_hotel
 INNER JOIN reserva_quarto rq ON q.id_quarto = rq.id_quarto
 GROUP BY h.id_hotel, h.nome_unidade, q.andar
@@ -75,12 +86,16 @@ SELECT
         WHEN d.id_pagamento IS NOT NULL THEN 'Dinheiro em Espécie'
         ELSE 'Não Especificado'
     END AS meio_pagamento,
+	-- CASE-WHEN funciona como um IF-ELSE padrão para filtrar os dados
     COUNT(p.id_pagamento) AS quantidade_transacoes,
-    SUM(p.valor_total) AS total_arrecadado
+	-- Conta quantos id_pagamentos tem
+SUM(p.valor_total) AS total_arrecadado
 FROM pagamento p
+-- Utilizar LEFT JOIN para que ele não tente buscar colunas que estão em todos ao mesmo tempo
 LEFT JOIN pix px ON p.id_pagamento = px.id_pagamento
 LEFT JOIN cartao_credito cc ON p.id_pagamento = cc.id_pagamento
 LEFT JOIN dinheiro d ON p.id_pagamento = d.id_pagamento
+-- meio_pagamento é o nome da consulta CASE-WHEN
 GROUP BY meio_pagamento
 ORDER BY quantidade_transacoes DESC;
 
@@ -110,13 +125,20 @@ SELECT
     r.id_reserva,
     COALESCE(pf.nome_completo, pj.nome_fantasia) AS hospede,
     (r.data_checkout - r.data_checkin) AS quantidade_diarias,
-    c.preco_diaria,
+	-- (Checkout - Checkin) = quantidade de dias alugados
+	c.preco_diaria,
     ((r.data_checkout - r.data_checkin) * c.preco_diaria) AS valor_calculado_real,
+	-- quantidade de dias * preço da diária = valor calculado real
     r.valor_estimado AS valor_guardado_na_reserva
 FROM reserva r
+-- LEFT JOIN: PESSOA FISICA <-> RESERVA via id_hospede
 LEFT JOIN pessoa_fisica pf ON r.id_hospede = pf.id_hospede
 LEFT JOIN pessoa_juridica pj ON r.id_hospede = pj.id_hospede
+-- Agrupar RESERVA_QUARTO <-> RESERVA id_quarto
+-- QUARTO <-> RESERVA_QUARTO via id_quarto
+-- CATEGORIA <-> QUARTO via id_categoria
 INNER JOIN reserva_quarto rq ON r.id_reserva = rq.id_reserva
 INNER JOIN quarto q ON rq.id_quarto = q.id_quarto
 INNER JOIN categoria c ON q.id_categoria = c.id_categoria
+-- checkout - checkin == quantidade_diarias
 ORDER BY quantidade_diarias DESC;
